@@ -6,8 +6,8 @@ This script creates a stock management application using Streamlit and MongoDB.
 import pandas as pd
 import streamlit as st
 
-from functions.mongo_api import connect_db, search_products, add_products, update_products
-from functions.utils import get_month_start
+from functions.mongo_api import add_products, connect_db, search_products, update_products
+from functions.utils import get_month_start, send_email
 from functions.constants import DB_SCHEMA
 
 # ==================================================
@@ -75,7 +75,9 @@ if __name__ == "__main__":
         column_edit, _, column_search = st.columns(3)
 
         # Button to search for articles
-        st.session_state["products"] = search_products(collection, filter_code, filter_name, filter_date)
+        st.session_state["products"] = search_products(
+            collection, filter_code, filter_name, filter_date
+        )
 
         # Toggle to allow editing of the table
         toggle_edit = column_edit.checkbox(
@@ -99,8 +101,13 @@ if __name__ == "__main__":
             disabled={"code": True},
         )
 
+        # Column to display the bottom action buttons
+        column_save, _, column_mail = st.columns(3)
+
         # Button to save changes if any modifications are made
-        if st.button("Sauvegarder les modifications", disabled=not toggle_edit):
+        if column_save.button(
+            "Sauvegarder les modifications", disabled=not toggle_edit, use_container_width=True
+        ):
             db_filtered = st.session_state["products"]
 
             # Get the deleted rows
@@ -120,8 +127,22 @@ if __name__ == "__main__":
                 st.error(error_message)
 
             else:
-                st.session_state.toggle_edit = False
+                st.session_state["toggle_edit"] = False
                 st.rerun()
+
+        # Button to send the table by email
+        if column_mail.button("Envoyer la table par email", use_container_width=True):
+            config = st.secrets["mail"]
+            sender, receiver, tokens = config["sender"], config["receiver"], config["tokens"]
+            products = st.session_state["products"]
+            error_message = send_email(products, sender, receiver, tokens)
+
+            # Display feedback to the user
+            if error_message:
+                st.error(error_message)
+
+            else:
+                st.success("Email envoyé avec succès.")
 
     # Manage the tab for adding new articles to the database
     with tab_add:
