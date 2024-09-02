@@ -133,9 +133,9 @@ if __name__ == "__main__":
         # Button to send the table by email
         if column_mail.button("Envoyer la table par email", use_container_width=True):
             config = st.secrets["mail"]
-            sender, receiver, tokens = config["sender"], config["receiver"], config["tokens"]
+            sender, receiver, token = config["sender"], config["receiver"], config["token"]
             products = st.session_state["products"]
-            error_message = send_email(products, sender, receiver, tokens)
+            error_message = send_email(products, sender, receiver, token)
 
             # Display feedback to the user
             if error_message:
