@@ -5,10 +5,11 @@ This script creates a stock management application using Streamlit and MongoDB.
 # Import the libraries
 import pandas as pd
 import streamlit as st
+import textwrap
 
 from functions.mongo_api import add_products, connect_db, search_products, update_products
 from functions.utils import get_month_start, send_email
-from functions.constants import DB_SCHEMA
+from functions.constants import DB_SCHEMA, DATE_FORMAT, DATE_FORMAT_PD
 
 # ==================================================
 # Define the streamlit functions
@@ -67,8 +68,12 @@ if __name__ == "__main__":
         # Input fields for filtering articles
         filter_code = column_code.text_input("Code d'article", placeholder="001")
         filter_name = column_name.text_input("Designation", placeholder="Article")
-        filter_date = column_date.date_input(
-            "Date limite de consommation", value=get_month_start().date(), format="YYYY-MM-DD"
+        filter_date = column_date.text_input(
+            "Date limite de consommation",
+            value=get_month_start().date().strftime(DATE_FORMAT_PD),
+            placeholder=DATE_FORMAT,
+            max_chars=10,
+            help="JJ/MM/AAAA (ex: 31/12/2024)",
         )
 
         # Create columns for action inputs
@@ -99,6 +104,7 @@ if __name__ == "__main__":
             hide_index=True,
             num_rows="dynamic" if toggle_edit else "fixed",
             disabled={"code": True},
+            column_config={"dlc": st.column_config.DateColumn(format=DATE_FORMAT)},
         )
 
         # Column to display the bottom action buttons
@@ -147,10 +153,19 @@ if __name__ == "__main__":
     # Manage the tab for adding new articles to the database
     with tab_add:
         # Text area for entering articles
+        placeholder = textwrap.dedent(
+            """\
+            Format:
+            code,designation,dlc,quantite
+
+            Exemple:
+            001,Article 1,31/12/2022,10
+            002,Article 2,15/01/2023,20
+            003,Article 3,26/02/2023,30
+            """
+        )
         text = st.text_area(
-            "Saissisez les informations des articles à ajouter",
-            placeholder="code,designation,dlc,quantite",
-            height=200,
+            "Saissisez les informations des articles à ajouter", placeholder=placeholder, height=200
         )
 
         if st.button("Enregistrer les articles"):
@@ -163,4 +178,9 @@ if __name__ == "__main__":
 
             else:
                 st.success("Articles ajoutés avec succès.")
-                st.table(new_data)
+                st.dataframe(
+                    new_data,
+                    column_config={"dlc": st.column_config.DateColumn(format=DATE_FORMAT)},
+                    hide_index=True,
+                    use_container_width=True,
+                )

@@ -9,3 +9,9 @@ DB_SCHEMA = {
     "dlc": ("datetime64[ns]", "date"),
     "quantite": (int, "entier"),
 }
+
+# Format for the date
+DATE_FORMAT = "DD/MM/YYYY"
+
+# Format for the date in pandas
+DATE_FORMAT_PD = "%d/%m/%Y"

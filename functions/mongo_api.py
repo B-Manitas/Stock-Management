@@ -9,8 +9,8 @@ import streamlit as st
 
 from io import StringIO
 
-from functions.utils import get_month_end, is_valid_data, typecast_data
-from functions.constants import DB_SCHEMA
+from functions.utils import get_month_end, is_valid_data, is_valid_date, typecast_data
+from functions.constants import DB_SCHEMA, DATE_FORMAT, DATE_FORMAT_PD
 
 
 @st.cache_resource
@@ -52,7 +52,7 @@ def search_products(
     collection: pymongo.collection.Collection,
     filter_code: str,
     filter_name: str,
-    filter_dlc: pd.Timestamp,
+    filter_dlc: str,
 ) -> pd.DataFrame:
     """
     Search for products in the database based on the specified criteria.
@@ -62,14 +62,14 @@ def search_products(
     collection : pymongo.collection.Collection
         The collection to search in.
 
-    item_code : str, optional
+    filter_code : str
         The code of the article to search for.
 
-    item_name : str, optional
+    filter_name : str
         The designation of the article to search for.
 
-    dlc : pd.Timestamp, optional
-        The expiration date to search for.
+    filter_dlc : str
+        The expiration date to search for. Keep only the articles that expire in the same month.
 
     Returns
     -------
@@ -80,11 +80,16 @@ def search_products(
     filter_dict = {
         "code": {"$regex": filter_code, "$options": "i"},
         "designation": {"$regex": filter_name, "$options": "i"},
-        "dlc": {
-            "$gte": pd.to_datetime(filter_dlc),
-            "$lte": get_month_end(filter_dlc),
-        },
     }
+
+    # Add the expiration date filter if specified
+    if filter_dlc and is_valid_date(filter_dlc):
+        filter_dlc = pd.to_datetime(filter_dlc, format=DATE_FORMAT_PD)
+
+        filter_dict["dlc"] = {
+            "$gte": filter_dlc,
+            "$lte": get_month_end(filter_dlc),
+        }
 
     # Perform the search query
     projection = {"_id": 0, "code": 1, "designation": 1, "dlc": 1, "quantite": 1}
@@ -143,13 +148,13 @@ def add_products(
         return new_articles, ""
 
     except Exception:
-        error_message = """
+        error_message = f"""
         Les données saisies ne sont pas valides. Veuillez vérifier les points suivants:
 
         - Les données doivent être séparées par des virgules et inclure les colonnes suivantes:
         code, designation, dlc, quantite.\n
 
-        - Les dates doivent être valides et au format 'YYYY-MM-DD'.\n
+        - Les dates doivent être valides et au format '{DATE_FORMAT}'.\n
 
         - Les quantités doivent être des entiers positifs.\n
 
@@ -158,9 +163,9 @@ def add_products(
         - Les données ne doivent pas contenir de valeurs manquantes.\n
 
         - Exemple:
-            - 001,Article 1,2022-12-31,10
-            - 002,Article 2,2023-01-15,20
-            - 003,Article 3,2023-02-28,30
+            - 001,Article 1,31/12/2022,10
+            - 002,Article 2,15/01/2023,20
+            - 003,Article 3,26/02/2023,30
 
         """
         return None, error_message

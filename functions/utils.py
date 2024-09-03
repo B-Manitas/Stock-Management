@@ -11,7 +11,7 @@ from email.mime.base import MIMEBase
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
-from functions.constants import DB_SCHEMA
+from functions.constants import DB_SCHEMA, DATE_FORMAT_PD
 
 
 def get_month_start(dlc: None | pd.Timestamp = None) -> pd.Timestamp:
@@ -100,6 +100,28 @@ def is_valid_data(df_data: pd.DataFrame) -> str:
     return ""
 
 
+def is_valid_date(date: str) -> bool:
+    """
+    Check if the date is valid.
+
+    Parameters
+    ----------
+    date : str
+        The date to check.
+
+    Returns
+    -------
+    bool
+        True if the date is valid, False otherwise.
+    """
+    try:
+        pd.to_datetime(date, format=DATE_FORMAT_PD)
+        return True
+
+    except Exception:
+        return False
+
+
 def typecast_data(df_data: pd.DataFrame) -> pd.DataFrame:
     """
     Typecast the data to the expected types.
@@ -115,7 +137,11 @@ def typecast_data(df_data: pd.DataFrame) -> pd.DataFrame:
         The typecasted data.
     """
     for k, (t, _) in DB_SCHEMA.items():
-        df_data[k] = df_data[k].astype(t)
+        if t == "datetime64[ns]":
+            df_data[k] = pd.to_datetime(df_data[k], format=DATE_FORMAT_PD)
+
+        else:
+            df_data[k] = df_data[k].astype(t)
 
     return df_data
 
@@ -144,7 +170,9 @@ def send_email(products: pd.DataFrame, sender: str, receiver: str, tokens: str) 
         If an error occurred, an error message is returned.
     """
     try:
-        date = pd.Timestamp.today().strftime("%d/%m/%Y")
+        date = pd.Timestamp.today().strftime(DATE_FORMAT_PD)
+        products_body = products.copy()
+        products_body["dlc"] = products_body["dlc"].dt.strftime(DATE_FORMAT_PD)
 
         # Create the email message
         msg = MIMEMultipart()
@@ -157,7 +185,7 @@ def send_email(products: pd.DataFrame, sender: str, receiver: str, tokens: str) 
         <p>Bonjour,</p>
         <p>Voici la liste des produits qui vont bientôt expirer:</p>
 
-        {products.to_html(index=False)}
+        {products_body.to_html(index=False)}
 
         <p>Cordialement,</p>
         <p>Gestion de stock</p>
